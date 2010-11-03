@@ -31,15 +31,15 @@ static GkrellmMonitor *monitor;
 static GkrellmPanel *panel;
 static GkrellmDecal *decal_text[8];
 static gint style_id;
-static gboolean cpu_online[8];
+static gint cpu_online[8];
 
 static void read_MHz(int cpu_id, char *buffer_, size_t bufsz_)
 {
 	FILE *f;
-	char syspath[60];
+	char syspath[64];
 	int i;
 
-	snprintf(syspath, 60, "/sys/devices/system/cpu/cpu%d/cpufreq/scaling_cur_freq", cpu_id);
+	snprintf(syspath, 64, "/sys/devices/system/cpu/cpu%d/cpufreq/scaling_cur_freq", cpu_id);
 	
 	if ((f = fopen(syspath, "r")) == NULL) {
 		snprintf(buffer_, bufsz_, "CPU%d N/A MHz", cpu_id);
@@ -58,17 +58,19 @@ static void read_MHz(int cpu_id, char *buffer_, size_t bufsz_)
 static void get_CPUCount()
 {
 	char c;
+	int i;
 
 	FILE *f = fopen("/sys/devices/system/cpu/online", "r");
 	if (f != NULL) {
 
+		i = 0;
 		while ((c = fgetc(f)) != EOF) {
 			if (c == '-') {
 				continue;
 			} else if (isdigit(c)) {
 				short cpu_id = c - '0';
 				if (cpu_id >= 0 && cpu_id < 8) {
-					cpu_online[cpu_id] = TRUE;
+					cpu_online[i++] = cpu_id;
 				}
 			}
 		}
@@ -97,7 +99,7 @@ static void update_plugin()
 {
 	static gint x_scroll, w;
 	static gchar info[32];
-	int i;
+	gint i, idx;
 
 	if ((GK.timer_ticks % 10) != 0)
 		return;
@@ -106,17 +108,17 @@ static void update_plugin()
 		w = gkrellm_chart_width();
 	x_scroll = (x_scroll + 1) % (2 * w);
 
-	for (i = 0; i < GKFREQ_MAX_CPUS; ++i) {
-		if (cpu_online[i] == TRUE) {
-			read_MHz(i, info, 31);
+	i = 0;
+	while ((idx = cpu_online[i++]) != -1) {
 
-			GdkFont *fDesc = gdk_font_from_description(decal_text[i]->text_style.font);
-			decal_text[i]->x_off = (w - gdk_string_width(fDesc, info)) / 2;
-			if (decal_text[i]->x_off < 0)
-				decal_text[i]->x_off = 0;
+		read_MHz(idx, info, 31);
+		
+		GdkFont *fDesc = gdk_font_from_description(decal_text[idx]->text_style.font);
+		decal_text[idx]->x_off = (w - gdk_string_width(fDesc, info)) * 0.5f;
+		if (decal_text[idx]->x_off < 0)
+			decal_text[idx]->x_off = 0;
 
-			gkrellm_draw_decal_text(panel, decal_text[i], info, w - x_scroll);
-		}
+		gkrellm_draw_decal_text(panel, decal_text[idx], info, w - x_scroll);
 	}
 
 	gkrellm_draw_panel_layers(panel);
@@ -127,9 +129,9 @@ static void create_plugin(GtkWidget *vbox, gint first_create)
 {
 	GkrellmStyle *style;
 	GkrellmTextstyle *ts, *ts_alt;
-	int i, y;
+	gint i, idx, y;
 
-	memset(cpu_online, FALSE, GKFREQ_MAX_CPUS * sizeof(gboolean));
+	memset(cpu_online, -1, GKFREQ_MAX_CPUS * sizeof(gint));
 
 	get_CPUCount();
 
@@ -142,11 +144,10 @@ static void create_plugin(GtkWidget *vbox, gint first_create)
 	ts_alt = gkrellm_meter_alt_textstyle(style_id);
 
 	y = -1;
-	for (i = 0; i < GKFREQ_MAX_CPUS; ++i) {
-		if (cpu_online[i] == TRUE) {
-			decal_text[i] = gkrellm_create_decal_text(panel, "CPU8 @ 88888 MHz", ts, style, -1, y, -1);
-			y += decal_text[i]->y + decal_text[i]->h + style->border.top + style->border.bottom;
-		}
+	i = 0;
+	while ((idx = cpu_online[i++]) != -1) {
+		decal_text[idx] = gkrellm_create_decal_text(panel, "CPU8 @ 88888 MHz", ts, style, -1, y, -1);
+		y += decal_text[idx]->y + decal_text[idx]->h + style->border.top + style->border.bottom;
 	}
 
 	gkrellm_panel_configure(panel, NULL, style);
