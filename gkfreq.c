@@ -19,7 +19,7 @@ static GkrellmMonitor *monitor;
 static GkrellmPanel *panel;
 static GkrellmDecal *decal_text[8];
 static gint style_id;
-static gint cpu_online[8];
+static gboolean cpu_online[8];
 
 static void read_MHz(int cpu_id, char *buffer_, size_t bufsz_)
 {
@@ -49,7 +49,7 @@ static void get_CPUCount()
 	int i;
 
 	for (i = 0; i < 8; ++i)
-		cpu_online[i] = 0;
+		cpu_online[i] = FALSE;
 		
 	FILE *f = fopen("/sys/devices/system/cpu/online", "r");
 	if (f != NULL) {
@@ -60,7 +60,7 @@ static void get_CPUCount()
 			} else if (isdigit(c)) {
 				short cpu_id = c - '0';
 				if (cpu_id >= 0 && cpu_id < 8) {
-					cpu_online[cpu_id] = 1;
+					cpu_online[cpu_id] = TRUE;
 				}
 			}
 		}
@@ -99,7 +99,7 @@ static void update_plugin()
 	x_scroll = (x_scroll + 1) % (2 * w);
 
 	for (i = 0; i < GKFREQ_MAX_CPUS; ++i) {
-		if (cpu_online[i] == 1) {
+		if (cpu_online[i] == TRUE) {
 			read_MHz(i, info, 31);
 
 			GdkFont *fDesc = gdk_font_from_description(decal_text[i]->text_style.font);
@@ -133,7 +133,7 @@ static void create_plugin(GtkWidget *vbox, gint first_create)
 
 	y = -1;
 	for (i = 0; i < GKFREQ_MAX_CPUS; ++i) {
-		if (cpu_online[i] == 1) {
+		if (cpu_online[i] == TRUE) {
 			decal_text[i] = gkrellm_create_decal_text(panel, "CPU8 @ 88888 MHz", ts, style, -1, y, -1);
 			y += decal_text[i]->y + decal_text[i]->h + style->border.top + style->border.bottom;
 		}
