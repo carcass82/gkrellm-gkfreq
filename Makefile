@@ -1,13 +1,22 @@
+CFLAGS += -fPIC -Wall `pkg-config gtk+-2.0 --cflags`
+
 all: gkfreq.so
 
 gkfreq.o: gkfreq.c
-	gcc -fPIC -O2 -Wall `pkg-config gtk+-2.0 --cflags` -c gkfreq.c
+	$(CC) $(CFLAGS) -c gkfreq.c
 
 gkfreq.so: gkfreq.o
-	gcc -shared -Wall -o gkfreq.so gkfreq.o
+	$(CC) -shared -ogkfreq.so gkfreq.o
+
+install:
+	install -m755 gkfreq.so ~/.gkrellm2/plugins/
 
 clean:
 	rm -rf *.o *.so
 
-install:
-	cp gkfreq.so ~/.gkrellm2/plugins/
+# start gkrellm in plugin-test mode
+# (of course gkrellm has to be in PATH)
+test:
+	`which gkrellm` -p gkfreq.so
+
+.PHONY: install clean

@@ -1,11 +1,23 @@
-/****************************************************************************
- * GKrellM GKfreq                                                           *
- * ver1.1                                                                   *
- *                                                                          *
- * A plugin for GKrellM showing cpu current frequency                       *
- *                                                                          *
- * carlo.casta@gmail.com                                                    *
- ****************************************************************************/
+/*****************************************************************************
+ * GKrellM GKfreq                                                            *
+ * A plugin for GKrellM showing current cpu frequency scale                  *
+ * (C) 2010 Carlo Casta <carlo.casta@gmail.com>                              *
+ *                                                                           *
+ * This program is free software; you can redistribute it and/or modify      *  
+ * it under the terms of the GNU General Public License as published by      *
+ * the Free Software Foundation; either version 2 of the License, or         *
+ * (at your option) any later version.                                       *
+ *                                                                           *
+ * This program is distributed in the hope that it will be useful,           *
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of            *
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the             *
+ * GNU General Public License for more details.                              *
+ *                                                                           *
+ * You should have received a copy of the GNU General Public License         *
+ * along with this program; if not, write to the Free Software               *
+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA *
+ *                                                                           *
+ *****************************************************************************/
 
 #include <gkrellm2/gkrellm.h>
 #include <stdio.h>
@@ -46,11 +58,7 @@ static void read_MHz(int cpu_id, char *buffer_, size_t bufsz_)
 static void get_CPUCount()
 {
 	char c;
-	int i;
 
-	for (i = 0; i < 8; ++i)
-		cpu_online[i] = FALSE;
-		
 	FILE *f = fopen("/sys/devices/system/cpu/online", "r");
 	if (f != NULL) {
 
@@ -121,6 +129,8 @@ static void create_plugin(GtkWidget *vbox, gint first_create)
 	GkrellmTextstyle *ts, *ts_alt;
 	int i, y;
 
+	memset(cpu_online, FALSE, GKFREQ_MAX_CPUS * sizeof(gboolean));
+
 	get_CPUCount();
 
 	if (first_create)
@@ -166,7 +176,7 @@ static GkrellmMonitor plugin_mon = {
 	NULL,                         /* Undefined 1 */
 	NULL,                         /* private */
 
-	MON_INSERT_AFTER | MON_CPU,   /* Insert plugin before this monitor */
+	MON_CPU,                      /* Insert plugin before this monitor */
 	NULL,                         /* Handle if a plugin, filled in by GKrellM */
 	NULL                          /* path if a plugin, filled in by GKrellM */
 };
