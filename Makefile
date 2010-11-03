@@ -1,4 +1,4 @@
-CFLAGS += -fPIC -Wall `pkg-config gtk+-2.0 --cflags`
+CFLAGS += -fPIC -Wall `pkg-config gkrellm --cflags`
 
 all: gkfreq.so
 

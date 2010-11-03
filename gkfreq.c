@@ -33,6 +33,7 @@ static GkrellmDecal *decal_text[8];
 static gint style_id;
 static gint cpu_online[8];
 
+
 static void read_MHz(int cpu_id, char *buffer_, size_t bufsz_)
 {
 	FILE *f;
@@ -40,16 +41,16 @@ static void read_MHz(int cpu_id, char *buffer_, size_t bufsz_)
 	int i;
 
 	snprintf(syspath, 64, "/sys/devices/system/cpu/cpu%d/cpufreq/scaling_cur_freq", cpu_id);
-	
+
 	if ((f = fopen(syspath, "r")) == NULL) {
 		snprintf(buffer_, bufsz_, "CPU%d N/A MHz", cpu_id);
 	} else {
 		fscanf(f, "%d", &i);
-		i /= 1000;
-		if (i < 1000)
-			snprintf(buffer_, bufsz_, "CPU%d @ %d MHz", cpu_id, i);
+		if (i < 1000000)
+			snprintf(buffer_, bufsz_, "CPU%d @ %d MHz", cpu_id, i/1000);
 		else
-			snprintf(buffer_, bufsz_, "CPU%d @ %.2f GHz", cpu_id, i * 0.001f);
+			snprintf(buffer_, bufsz_, "CPU%d @ %.2f GHz", cpu_id, i * 0.000001f);
+
 		fclose(f);
 	}
 }
@@ -74,6 +75,7 @@ static void get_CPUCount()
 				}
 			}
 		}
+		
 		fclose(f);
 	}
 }
@@ -91,7 +93,7 @@ static gint panel_expose_event(GtkWidget *widget, GdkEventExpose *ev)
 	                ev->area.width,
 	                ev->area.height);
 
-	return FALSE;
+	return 0;
 }
 
 
