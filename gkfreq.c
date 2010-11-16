@@ -1,7 +1,7 @@
 /*****************************************************************************
  * GKrellM GKfreq                                                            *
  * A plugin for GKrellM showing current cpu frequency scale                  *
- * (C) 2010 Carlo Casta <carlo.casta@gmail.com>                              *
+ * Copyright (C) 2010 Carlo Casta <carlo.casta@gmail.com>                    *
  *                                                                           *
  * This program is free software; you can redistribute it and/or modify      *  
  * it under the terms of the GNU General Public License as published by      *
@@ -99,28 +99,44 @@ static gint panel_expose_event(GtkWidget *widget, GdkEventExpose *ev)
 
 static void update_plugin()
 {
-	static gint x_scroll, w;
+	static gint w, x_scroll[GKFREQ_MAX_CPUS];
 	static gchar info[32];
 	gint i, idx;
 
-	if ((GK.timer_ticks % 10) != 0)
-		return;
-
-	if (w == 0)
-		w = gkrellm_chart_width();
-	x_scroll = (x_scroll + 1) % (2 * w);
+	w = gkrellm_chart_width();
 
 	i = 0;
 	while ((idx = cpu_online[i++]) != -1) {
+		
+		gboolean scrolling;
+		gint w_scroll, w_decal;
 
 		read_MHz(idx, info, 31);
-		
-		GdkFont *fDesc = gdk_font_from_description(decal_text[idx]->text_style.font);
-		decal_text[idx]->x_off = (w - gdk_string_width(fDesc, info)) * 0.5f;
-		if (decal_text[idx]->x_off < 0)
-			decal_text[idx]->x_off = 0;
 
-		gkrellm_draw_decal_text(panel, decal_text[idx], info, w - x_scroll);
+		w_scroll = gdk_string_width(
+			gdk_font_from_description(decal_text[idx]->text_style.font),
+			info
+		);
+
+		decal_text[idx]->x_off = (w - w_scroll) / 2;
+		scrolling = (decal_text[idx]->x_off < 0)? TRUE : FALSE;
+		if (scrolling) {
+#if defined(GKRELLM_HAVE_DECAL_SCROLL_TEXT)
+			gkrellm_decal_scroll_text_set_text(panel, decal_text[idx], info);
+			gkrellm_decal_scroll_text_get_size(decal_text[idx], &w_scroll, NULL);
+			gkrellm_decal_get_size(decal_text[idx], &w_decal, NULL);
+			
+			x_scroll[idx] = (x_scroll[idx] + 1) % (2 * w);
+			
+			gkrellm_decal_scroll_text_horizontal_loop(decal_text[idx], scrolling);
+			gkrellm_decal_text_set_offset(decal_text[idx], x_scroll[idx], 0);
+#else
+			decal_text[idx]->x_off = 0;
+			gkrellm_draw_decal_text(panel, decal_text[idx], info, 0);
+#endif
+		} else {
+			gkrellm_draw_decal_text(panel, decal_text[idx], info, 0);
+		}
 	}
 
 	gkrellm_draw_panel_layers(panel);

@@ -16,7 +16,7 @@ clean:
 
 # start gkrellm in plugin-test mode
 # (of course gkrellm has to be in PATH)
-test:
+test: gkfreq.so
 	`which gkrellm` -p gkfreq.so
 
 .PHONY: install clean
