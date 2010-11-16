@@ -37,19 +37,19 @@ static gint cpu_online[8];
 static void read_MHz(int cpu_id, char *buffer_, size_t bufsz_)
 {
 	FILE *f;
-	char syspath[64];
+	char syspath[] = "/sys/devices/system/cpu/cpuN/cpufreq/scaling_cur_freq";
 	int i;
 
-	snprintf(syspath, 64, "/sys/devices/system/cpu/cpu%d/cpufreq/scaling_cur_freq", cpu_id);
+	syspath[27] = cpu_id + '0';
 
 	if ((f = fopen(syspath, "r")) == NULL) {
-		snprintf(buffer_, bufsz_, "CPU%d N/A MHz", cpu_id);
+		snprintf(buffer_, bufsz_, "CPU%d: N/A MHz", cpu_id);
 	} else {
 		fscanf(f, "%d", &i);
 		if (i < 1000000)
-			snprintf(buffer_, bufsz_, "CPU%d @ %d MHz", cpu_id, i/1000);
+			snprintf(buffer_, bufsz_, "CPU%d: %d MHz", cpu_id, i / 1000);
 		else
-			snprintf(buffer_, bufsz_, "CPU%d @ %.2f GHz", cpu_id, i * 0.000001f);
+			snprintf(buffer_, bufsz_, "CPU%d: %.2f GHz", cpu_id, i * 0.000001f);
 
 		fclose(f);
 	}
@@ -164,7 +164,7 @@ static void create_plugin(GtkWidget *vbox, gint first_create)
 	y = -1;
 	i = 0;
 	while ((idx = cpu_online[i++]) != -1) {
-		decal_text[idx] = gkrellm_create_decal_text(panel, "CPU8 @ 88888 MHz", ts, style, -1, y, -1);
+		decal_text[idx] = gkrellm_create_decal_text(panel, "CPU8: 8,88 GHz", ts, style, -1, y, -1);
 		y += decal_text[idx]->y + decal_text[idx]->h + style->border.top + style->border.bottom;
 	}
 
