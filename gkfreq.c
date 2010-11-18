@@ -26,23 +26,59 @@
 #include <unistd.h>
 
 #define GKFREQ_MAX_CPUS 8
-#define GKFREQ_CONFIG_KEYWORD "GKFreq"
+#define GKFREQ_CONFIG_KEYWORD "gkfreq"
 
 static GkrellmMonitor *monitor;
 static GkrellmPanel *panel;
 static GkrellmDecal *decal_text[8];
+static GtkWidget *text_format_combo_box;
 static int style_id;
 static int cpu_online[8];
+static gchar *text_format;
 
 
-static void format_String(int cpuid, int hz, char *fmt, char *buf, int bufsize)
+static void format_String(int cpuid, int hz, char *buf, int bufsize)
 {
-	if (hz < 0)
-		snprintf(buf, bufsize, "CPU%d: N/A MHz", cpuid);
-	else if (hz < 1000000)
-		snprintf(buf, bufsize, "CPU%d: %d MHz", cpuid, hz / 1000);
-	else
-		snprintf(buf, bufsize, "CPU%d: %.2f GHz", cpuid, hz * 0.000001f);
+	gchar *ptr;
+	int len;
+	
+	/* safe default */
+	if (text_format == NULL)
+		gkrellm_dup_string(&text_format, "$L: $F");
+	
+	ptr = text_format;
+	while (*ptr != '\0' && bufsize > 0) {
+		len = 1;
+		if (*ptr == '$') {
+			++ptr;
+			switch (*ptr) {
+				case 'L':
+					len = snprintf(buf, bufsize, "CPU%d", cpuid);
+					break;
+				case 'N':
+					len = snprintf(buf, bufsize, "%d", cpuid);
+					break;
+				case 'F':
+					if (hz < 0)
+						len = snprintf(buf, bufsize, "N/A MHz");
+					else if (hz < 1000000)
+						len = snprintf(buf, bufsize, "%d MHz", hz / 1000);
+					else
+						len = snprintf(buf, bufsize, "%.2f GHz", hz * 0.000001f);
+					break;
+				default:
+					*buf = *ptr;
+					break;
+			}
+		} else {
+			*buf = *ptr;
+		}
+		
+		bufsize -= len;
+		buf += len;
+		++ptr;
+	}
+	*buf = '\0';
 }
 
 
@@ -50,6 +86,7 @@ static void read_MHz(int cpu_id, char *buffer_, int bufsz_)
 {
 	FILE *f;
 	char syspath[] = "/sys/devices/system/cpu/cpuN/cpufreq/scaling_cur_freq";
+	gchar *buffer_ptr;
 	int freq;
 
 	syspath[27] = cpu_id + '0';
@@ -61,7 +98,8 @@ static void read_MHz(int cpu_id, char *buffer_, int bufsz_)
 		fclose(f);
 	}
 	
-	format_String(cpu_id, freq, "", buffer_, bufsz_);
+	buffer_ptr = buffer_;
+	format_String(cpu_id, freq, buffer_ptr, bufsz_);
 }
 
 
@@ -132,12 +170,15 @@ static void update_plugin()
 		if (scrolling) {
 #if defined(GKRELLM_HAVE_DECAL_SCROLL_TEXT)
 			gkrellm_decal_scroll_text_set_text(panel, decal_text[idx], info);
-			gkrellm_decal_scroll_text_get_size(decal_text[idx], &w_scroll, NULL);
+			gkrellm_decal_scroll_text_get_size(decal_text[idx],
+			                                   &w_scroll,
+			                                   NULL);
 			gkrellm_decal_get_size(decal_text[idx], &w_decal, NULL);
 			
 			x_scroll[idx] = (x_scroll[idx] + 1) % (2 * w);
 			
-			gkrellm_decal_scroll_text_horizontal_loop(decal_text[idx], scrolling);
+			gkrellm_decal_scroll_text_horizontal_loop(decal_text[idx],
+			                                          scrolling);
 			gkrellm_decal_text_set_offset(decal_text[idx], x_scroll[idx], 0);
 #else
 			decal_text[idx]->x_off = 0;
@@ -198,18 +239,30 @@ static void create_plugin(GtkWidget *vbox, gint first_create)
 }
 
 
+static void cb_text_format(GtkWidget *widget, gpointer data)
+{
+	gchar *s;
+	GtkWidget *entry;
+
+	entry = gtk_bin_get_child(GTK_BIN(text_format_combo_box));
+	s = gkrellm_gtk_entry_get_text(&entry);
+	gkrellm_dup_string(&text_format, s);
+}
+
+
 static gchar *gkfreq_info_text[] =
 {
  N_("<h>Label\n"),
  N_("Substitution variables for the format string for label:\n"),
  N_("\t$L    the CPU label\n"),
  N_("\t$N    the CPU id\n"),
- N_("\t$F    the CPU frequency\n")
+ N_("\t$F    the CPU frequency\n"),
+ N_("\t$$    $ symbol")
 };
 
 static void create_plugin_tab(GtkWidget *tab_vbox)
 {
-	GtkWidget *text_format_combo_box, *tabs, *hbox, *vbox, *vbox1, *text;
+	GtkWidget *tabs, *hbox, *vbox, *vbox1, *text;
 	int i;
 	
 	tabs = gtk_notebook_new();
@@ -224,8 +277,15 @@ static void create_plugin_tab(GtkWidget *tab_vbox)
 	text_format_combo_box = gtk_combo_box_entry_new_text();
 	gtk_box_pack_start(GTK_BOX(hbox), text_format_combo_box, TRUE, TRUE, 0);
 	gtk_combo_box_append_text(GTK_COMBO_BOX(text_format_combo_box),
+	                          text_format);
+	gtk_combo_box_append_text(GTK_COMBO_BOX(text_format_combo_box),
 	                          _("$L: $F"));
 	gtk_combo_box_set_active(GTK_COMBO_BOX(text_format_combo_box), 0);
+	
+	g_signal_connect(G_OBJECT(GTK_COMBO_BOX(text_format_combo_box)),
+	                 "changed",
+	                 G_CALLBACK(cb_text_format),
+	                 NULL);
 
 	text = gkrellm_gtk_scrolled_text_view(vbox, NULL, GTK_POLICY_AUTOMATIC,
 	                                                  GTK_POLICY_AUTOMATIC);
@@ -234,25 +294,41 @@ static void create_plugin_tab(GtkWidget *tab_vbox)
 		gkrellm_gtk_text_view_append(text, _(gkfreq_info_text[i]));
 }
 
+
+static void save_plugin_config(FILE *f)
+{
+	fprintf(f, "%s text_format %s\n", GKFREQ_CONFIG_KEYWORD, text_format);
+}
+
+
+static void load_plugin_config(gchar *arg)
+{
+	gchar config[32], item[CFG_BUFSIZE];
+	
+	if ((sscanf(arg, "%31s %[^\n]", config, item)) == 2)
+		gkrellm_dup_string(&text_format, item);
+}
+
+
 static GkrellmMonitor plugin_mon = {
-	"gkfreq",                     /* Name, for config tab */
-	0,                            /* Id, 0 if a plugin */
-	create_plugin,                /* The create function */
-	update_plugin,                /* The update function */
-	create_plugin_tab,            /* The config tab create function */
-	NULL,                         /* Apply the config function */
+	"gkfreq",                   /* Name, for config tab */
+	0,                          /* Id, 0 if a plugin */
+	create_plugin,              /* The create function */
+	update_plugin,              /* The update function */
+	create_plugin_tab,          /* The config tab create function */
+	NULL,                       /* Apply the config function */
 
-	NULL,                         /* Save user config */
-	NULL,                         /* Load user config */
-	GKFREQ_CONFIG_KEYWORD,        /* config keyword */
+	save_plugin_config,         /* Save user config */
+	load_plugin_config,         /* Load user config */
+	GKFREQ_CONFIG_KEYWORD,      /* config keyword */
 
-	NULL,                         /* Undefined 2 */
-	NULL,                         /* Undefined 1 */
-	NULL,                         /* private */
+	NULL,                       /* Undefined 2 */
+	NULL,                       /* Undefined 1 */
+	NULL,                       /* private */
 
-	MON_CPU,                      /* Insert plugin before this monitor */
-	NULL,                         /* Handle if a plugin, filled in by GKrellM */
-	NULL                          /* path if a plugin, filled in by GKrellM */
+	MON_CPU,                    /* Insert plugin before this monitor */
+	NULL,                       /* Handle if a plugin, filled in by GKrellM */
+	NULL                        /* path if a plugin, filled in by GKrellM */
 };
 
 
