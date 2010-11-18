@@ -30,11 +30,11 @@
 static GkrellmMonitor *monitor;
 static GkrellmPanel *panel;
 static GkrellmDecal *decal_text[8];
-static gint style_id;
-static gint cpu_online[8];
+static int style_id;
+static int cpu_online[8];
 
 
-static void read_MHz(int cpu_id, char *buffer_, size_t bufsz_)
+static void read_MHz(int cpu_id, char *buffer_, int bufsz_)
 {
 	FILE *f;
 	char syspath[] = "/sys/devices/system/cpu/cpuN/cpufreq/scaling_cur_freq";
@@ -99,9 +99,9 @@ static gint panel_expose_event(GtkWidget *widget, GdkEventExpose *ev)
 
 static void update_plugin()
 {
-	static gint w, x_scroll[GKFREQ_MAX_CPUS];
-	static gchar info[32];
-	gint i, idx;
+	static int w, x_scroll[GKFREQ_MAX_CPUS];
+	static char info[32];
+	int i, idx;
 
 	w = gkrellm_chart_width();
 
@@ -147,7 +147,7 @@ static void create_plugin(GtkWidget *vbox, gint first_create)
 {
 	GkrellmStyle *style;
 	GkrellmTextstyle *ts, *ts_alt;
-	gint i, idx, y;
+	int i, idx, y;
 
 	memset(cpu_online, -1, GKFREQ_MAX_CPUS * sizeof(gint));
 
@@ -164,18 +164,65 @@ static void create_plugin(GtkWidget *vbox, gint first_create)
 	y = -1;
 	i = 0;
 	while ((idx = cpu_online[i++]) != -1) {
-		decal_text[idx] = gkrellm_create_decal_text(panel, "CPU8: 8,88 GHz", ts, style, -1, y, -1);
-		y += decal_text[idx]->y + decal_text[idx]->h + style->border.top + style->border.bottom;
-	}
 
+		decal_text[idx] = gkrellm_create_decal_text(panel,
+		                                            "CPU8: 8888GHz",
+		                                            ts,
+		                                            style,
+		                                            -1,
+		                                            y,
+		                                            -1);
+		y += decal_text[idx]->y
+		  + decal_text[idx]->h
+		  + style->border.top
+		  + style->border.bottom;
+
+	}
 	gkrellm_panel_configure(panel, NULL, style);
 	gkrellm_panel_create(vbox, monitor, panel);
 
 	if (first_create)
-		g_signal_connect(G_OBJECT (panel->drawing_area),
+		g_signal_connect(G_OBJECT(panel->drawing_area),
 		                 "expose_event",
 		                 G_CALLBACK (panel_expose_event),
 		                 NULL);
+}
+
+
+static gchar *gkfreq_info_text[] =
+{
+ N_("<h>Label\n"),
+ N_("Substitution variables for the format string for label:\n"),
+ N_("\t$L    the CPU label\n"),
+ N_("\t$N    the CPU id\n"),
+ N_("\t$F    the CPU frequency\n")
+};
+
+static void create_plugin_tab(GtkWidget *tab_vbox)
+{
+	GtkWidget *text_format_combo_box, *tabs, *hbox, *vbox, *vbox1, *text;
+	int i;
+	
+	tabs = gtk_notebook_new();
+	gtk_notebook_set_tab_pos(GTK_NOTEBOOK(tabs), GTK_POS_TOP);
+	gtk_box_pack_start(GTK_BOX(tab_vbox), tabs, TRUE, TRUE, 0);
+
+	vbox = gkrellm_gtk_framed_notebook_page(tabs, _("Setup"));
+	vbox1 = gkrellm_gtk_category_vbox(vbox, _("Format String for Label"),
+	                                  4, 0, TRUE);
+	hbox = gtk_hbox_new(FALSE, 0);
+	gtk_box_pack_start(GTK_BOX(vbox1), hbox, FALSE, FALSE, 0);
+	text_format_combo_box = gtk_combo_box_entry_new_text();
+	gtk_box_pack_start(GTK_BOX(hbox), text_format_combo_box, TRUE, TRUE, 0);
+	gtk_combo_box_append_text(GTK_COMBO_BOX(text_format_combo_box),
+	                          _("$L: $F"));
+	gtk_combo_box_set_active(GTK_COMBO_BOX(text_format_combo_box), 0);
+
+	text = gkrellm_gtk_scrolled_text_view(vbox, NULL, GTK_POLICY_AUTOMATIC,
+	                                                  GTK_POLICY_AUTOMATIC);
+
+	for (i = 0; i < sizeof(gkfreq_info_text) / sizeof(gchar *); ++i)
+		gkrellm_gtk_text_view_append(text, _(gkfreq_info_text[i]));
 }
 
 
@@ -184,12 +231,12 @@ static GkrellmMonitor plugin_mon = {
 	0,                            /* Id, 0 if a plugin */
 	create_plugin,                /* The create function */
 	update_plugin,                /* The update function */
-	NULL,                         /* The config tab create function */
+	create_plugin_tab,            /* The config tab create function */
 	NULL,                         /* Apply the config function */
 
 	NULL,                         /* Save user config */
 	NULL,                         /* Load user config */
-	NULL,                         /* config keyword */
+	"GKFreq",                     /* config keyword */
 
 	NULL,                         /* Undefined 2 */
 	NULL,                         /* Undefined 1 */
