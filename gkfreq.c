@@ -26,6 +26,7 @@
 #include <unistd.h>
 
 #define GKFREQ_MAX_CPUS 8
+#define GKFREQ_CONFIG_KEYWORD "GKFreq"
 
 static GkrellmMonitor *monitor;
 static GkrellmPanel *panel;
@@ -34,25 +35,33 @@ static int style_id;
 static int cpu_online[8];
 
 
+static void format_String(int cpuid, int hz, char *fmt, char *buf, int bufsize)
+{
+	if (hz < 0)
+		snprintf(buf, bufsize, "CPU%d: N/A MHz", cpuid);
+	else if (hz < 1000000)
+		snprintf(buf, bufsize, "CPU%d: %d MHz", cpuid, hz / 1000);
+	else
+		snprintf(buf, bufsize, "CPU%d: %.2f GHz", cpuid, hz * 0.000001f);
+}
+
+
 static void read_MHz(int cpu_id, char *buffer_, int bufsz_)
 {
 	FILE *f;
 	char syspath[] = "/sys/devices/system/cpu/cpuN/cpufreq/scaling_cur_freq";
-	int i;
+	int freq;
 
 	syspath[27] = cpu_id + '0';
 
 	if ((f = fopen(syspath, "r")) == NULL) {
-		snprintf(buffer_, bufsz_, "CPU%d: N/A MHz", cpu_id);
+		freq = -1;
 	} else {
-		fscanf(f, "%d", &i);
-		if (i < 1000000)
-			snprintf(buffer_, bufsz_, "CPU%d: %d MHz", cpu_id, i / 1000);
-		else
-			snprintf(buffer_, bufsz_, "CPU%d: %.2f GHz", cpu_id, i * 0.000001f);
-
+		fscanf(f, "%d", &freq);
 		fclose(f);
 	}
+	
+	format_String(cpu_id, freq, "", buffer_, bufsz_);
 }
 
 
@@ -225,7 +234,6 @@ static void create_plugin_tab(GtkWidget *tab_vbox)
 		gkrellm_gtk_text_view_append(text, _(gkfreq_info_text[i]));
 }
 
-
 static GkrellmMonitor plugin_mon = {
 	"gkfreq",                     /* Name, for config tab */
 	0,                            /* Id, 0 if a plugin */
@@ -236,7 +244,7 @@ static GkrellmMonitor plugin_mon = {
 
 	NULL,                         /* Save user config */
 	NULL,                         /* Load user config */
-	"GKFreq",                     /* config keyword */
+	GKFREQ_CONFIG_KEYWORD,        /* config keyword */
 
 	NULL,                         /* Undefined 2 */
 	NULL,                         /* Undefined 1 */
