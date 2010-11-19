@@ -52,23 +52,23 @@ static void format_String(int cpuid, int hz, char *buf, int bufsize)
 		if (*ptr == '$') {
 			++ptr;
 			switch (*ptr) {
-				case 'L':
-					len = snprintf(buf, bufsize, "CPU%d", cpuid);
-					break;
-				case 'N':
-					len = snprintf(buf, bufsize, "%d", cpuid);
-					break;
-				case 'F':
-					if (hz < 0)
-						len = snprintf(buf, bufsize, "N/A MHz");
-					else if (hz < 1000000)
-						len = snprintf(buf, bufsize, "%d MHz", hz / 1000);
-					else
-						len = snprintf(buf, bufsize, "%.2f GHz", hz * 0.000001f);
-					break;
-				default:
-					*buf = *ptr;
-					break;
+			case 'L':
+				len = snprintf(buf, bufsize, "CPU%d", cpuid);
+				break;
+			case 'N':
+				len = snprintf(buf, bufsize, "%d", cpuid);
+				break;
+			case 'F':
+				if (hz < 0)
+					len = snprintf(buf, bufsize, "N/A MHz");
+				else if (hz < 1000000)
+					len = snprintf(buf, bufsize, "%d MHz", hz / 1000);
+				else
+					len = snprintf(buf, bufsize, "%.2f GHz", hz * 0.000001f);
+				break;
+			default:
+				*buf = *ptr;
+				break;
 			}
 		} else {
 			*buf = *ptr;
@@ -216,7 +216,7 @@ static void create_plugin(GtkWidget *vbox, gint first_create)
 	while ((idx = cpu_online[i++]) != -1) {
 
 		decal_text[idx] = gkrellm_create_decal_text(panel,
-		                                            "CPU8: 8888GHz",
+		                                            "CPU8: @ 8888GHz",
 		                                            ts,
 		                                            style,
 		                                            -1,
