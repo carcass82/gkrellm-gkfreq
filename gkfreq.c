@@ -66,6 +66,30 @@ static void format_String(int cpuid, int hz, char *buf, int bufsize)
 				else
 					len = snprintf(buf, bufsize, "%.2f GHz", hz * 0.000001f);
 				break;
+			case 'M':
+				if (hz < 0)
+					len = snprintf(buf, bufsize, "N/A MHz");
+				else
+					len = snprintf(buf, bufsize, "%d MHz", hz / 1000);
+				break;
+			case 'm':
+				if (hz < 0)
+					len = snprintf(buf, bufsize, "N/A");
+				else
+					len = snprintf(buf, bufsize, "%d", hz / 1000);
+				break;
+			case 'G':
+				if (hz < 0)
+					len = snprintf(buf, bufsize, "N/A GHz");
+				else
+					len = snprintf(buf, bufsize, "%.2f GHz", hz * 0.000001f);
+				break;
+			case 'g':
+				if (hz < 0)
+					len = snprintf(buf, bufsize, "N/A");
+				else
+					len = snprintf(buf, bufsize, "%.2f", hz * 0.000001f);
+				break;
 			default:
 				*buf = *ptr;
 				break;
@@ -209,7 +233,11 @@ static gchar *gkfreq_info_text[] = {
 	N_("Substitution variables for the format string for label:\n"),
 	N_("\t$L    the CPU label\n"),
 	N_("\t$N    the CPU id\n"),
-	N_("\t$F    the CPU frequency\n"),
+	N_("\t$F    the CPU frequency, in MHz or GHz\n"),
+	N_("\t$M    the CPU frequency, in MHz\n"),
+	N_("\t$m    the CPU frequency, in MHz, without 'MHz' string\n"),
+	N_("\t$G    the CPU frequency, in GHz\n"),
+	N_("\t$g    the CPU frequency, in GHz, without 'GHz' string\n"),
 	N_("\t$$    $ symbol")
 };
 
