@@ -193,52 +193,6 @@ static void update_plugin()
 }
 
 
-static void create_plugin(GtkWidget *vbox, gint first_create) 
-{
-	GkrellmStyle *style;
-	GkrellmTextstyle *ts, *ts_alt;
-	int i, idx, y;
-
-	memset(cpu_online, -1, GKFREQ_MAX_CPUS * sizeof(gint));
-
-	get_CPUCount();
-
-	if (first_create)
-		panel = gkrellm_panel_new0();
-
-	style = gkrellm_meter_style(style_id);
-
-	ts = gkrellm_meter_textstyle(style_id);
-	ts_alt = gkrellm_meter_alt_textstyle(style_id);
-
-	y = -1;
-	i = 0;
-	while ((idx = cpu_online[i++]) != -1) {
-
-		decal_text[idx] = gkrellm_create_decal_text(panel,
-		                                            "CPU8: @ 8888GHz",
-		                                            ts,
-		                                            style,
-		                                            -1,
-		                                            y,
-		                                            -1);
-		y += decal_text[idx]->y
-		  + decal_text[idx]->h
-		  + style->border.top
-		  + style->border.bottom;
-
-	}
-	gkrellm_panel_configure(panel, NULL, style);
-	gkrellm_panel_create(vbox, monitor, panel);
-
-	if (first_create)
-		g_signal_connect(G_OBJECT(panel->drawing_area),
-		                 "expose_event",
-		                 G_CALLBACK (panel_expose_event),
-		                 NULL);
-}
-
-
 static void cb_text_format(GtkWidget *widget, gpointer data)
 {
 	gchar *s;
@@ -250,14 +204,13 @@ static void cb_text_format(GtkWidget *widget, gpointer data)
 }
 
 
-static gchar *gkfreq_info_text[] =
-{
- N_("<h>Label\n"),
- N_("Substitution variables for the format string for label:\n"),
- N_("\t$L    the CPU label\n"),
- N_("\t$N    the CPU id\n"),
- N_("\t$F    the CPU frequency\n"),
- N_("\t$$    $ symbol")
+static gchar *gkfreq_info_text[] = {
+	N_("<h>Label\n"),
+	N_("Substitution variables for the format string for label:\n"),
+	N_("\t$L    the CPU label\n"),
+	N_("\t$N    the CPU id\n"),
+	N_("\t$F    the CPU frequency\n"),
+	N_("\t$$    $ symbol")
 };
 
 static void create_plugin_tab(GtkWidget *tab_vbox)
@@ -307,6 +260,65 @@ static void load_plugin_config(gchar *arg)
 	
 	if ((sscanf(arg, "%31s %[^\n]", config, item)) == 2)
 		gkrellm_dup_string(&text_format, item);
+}
+
+
+void gkfreq_click_event(GtkWidget *w, GdkEventButton *event, gpointer p)
+{
+	if (event->button == 3)
+		gkrellm_open_config_window(monitor);
+}
+
+
+static void create_plugin(GtkWidget *vbox, gint first_create) 
+{
+	GkrellmStyle *style;
+	GkrellmTextstyle *ts, *ts_alt;
+	int i, idx, y;
+
+	memset(cpu_online, -1, GKFREQ_MAX_CPUS * sizeof(gint));
+
+	get_CPUCount();
+
+	if (first_create)
+		panel = gkrellm_panel_new0();
+
+	style = gkrellm_meter_style(style_id);
+
+	ts = gkrellm_meter_textstyle(style_id);
+	ts_alt = gkrellm_meter_alt_textstyle(style_id);
+
+	y = -1;
+	i = 0;
+	while ((idx = cpu_online[i++]) != -1) {
+
+		decal_text[idx] = gkrellm_create_decal_text(panel,
+		                                            "CPU8: @ 8888GHz",
+		                                            ts,
+		                                            style,
+		                                            -1,
+		                                            y,
+		                                            -1);
+		y += decal_text[idx]->y
+		  + decal_text[idx]->h
+		  + style->border.top
+		  + style->border.bottom;
+
+	}
+	gkrellm_panel_configure(panel, NULL, style);
+	gkrellm_panel_create(vbox, monitor, panel);
+
+	if (first_create) {
+		g_signal_connect(G_OBJECT(panel->drawing_area),
+		                 "expose_event",
+		                 G_CALLBACK(panel_expose_event),
+		                 NULL);
+		
+		g_signal_connect(G_OBJECT(panel->drawing_area),
+		                 "button_press_event",
+		                 G_CALLBACK(gkfreq_click_event),
+		                 NULL);
+	}
 }
 
 
