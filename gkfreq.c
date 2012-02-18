@@ -129,24 +129,52 @@ static void read_MHz(int cpu_id, char *buffer_, int bufsz_)
 
 static void get_CPUCount()
 {
+	/*
+	 * From Kernel Doc: cputopology.txt
+	 *
+	 * [...]
+	 * In this example, there are 64 CPUs in the system but cpus 32-63 exceed
+	 * the kernel max which is limited to 0..31 by the NR_CPUS config option
+	 * being 32.  Note also that CPUs 2 and 4-31 are not online but could be
+	 * brought online as they are both present and possible.
+	 *
+	 * kernel_max: 31
+	 * offline: 2,4-31,32-63
+	 * online: 0-1,3
+	 * possible: 0-31
+	 * present: 0-31
+	 */
+
 	char c;
-	int i;
+	int i, j, range_mode = 0;
+	FILE *f = NULL;
 
-	FILE *f = fopen("/sys/devices/system/cpu/online", "r");
+	f = fopen("/sys/devices/system/cpu/online", "r");
 	if (f != NULL) {
-
 		i = 0;
 		while ((c = fgetc(f)) != EOF) {
-			if (c == '-') {
+
+			switch (c) {
+			case ',':
 				continue;
-			} else if (isdigit(c)) {
-				short cpu_id = c - '0';
-				if (cpu_id >= 0 && cpu_id < 8) {
-					cpu_online[i++] = cpu_id;
+			case '-':
+				range_mode = 1;
+				break;
+			default:
+				if (!isdigit(c))
+					break;
+				
+				if (range_mode == 1) {
+					for (j = cpu_online[i - 1] + 1; j <= c - '0'; ++j)
+						cpu_online[i++] = j;
+					range_mode = 0;
+				} else {
+					cpu_online[i++] = c - '0';
 				}
+				break;
 			}
 		}
-		
+				
 		fclose(f);
 	}
 }
@@ -301,7 +329,7 @@ void gkfreq_click_event(GtkWidget *w, GdkEventButton *event, gpointer p)
 static void create_plugin(GtkWidget *vbox, gint first_create) 
 {
 	GkrellmStyle *style;
-	GkrellmTextstyle *ts, *ts_alt;
+	GkrellmTextstyle *ts;
 	int i, idx, y;
 
 	memset(cpu_online, -1, GKFREQ_MAX_CPUS * sizeof(gint));
@@ -312,9 +340,7 @@ static void create_plugin(GtkWidget *vbox, gint first_create)
 		panel = gkrellm_panel_new0();
 
 	style = gkrellm_meter_style(style_id);
-
 	ts = gkrellm_meter_textstyle(style_id);
-	ts_alt = gkrellm_meter_alt_textstyle(style_id);
 
 	y = -1;
 	i = 0;
@@ -327,8 +353,7 @@ static void create_plugin(GtkWidget *vbox, gint first_create)
 		                                            -1,
 		                                            y,
 		                                            -1);
-		y += decal_text[idx]->y
-		  + decal_text[idx]->h
+		y = decal_text[idx]->y
 		  + style->border.top
 		  + style->border.bottom;
 
