@@ -353,7 +353,8 @@ static void create_plugin(GtkWidget *vbox, gint first_create)
 		                                            -1,
 		                                            y,
 		                                            -1);
-		y += decal_text[idx]->y
+		y = decal_text[idx]->y
+		  + decal_text[idx]->h
 		  + style->border.top
 		  + style->border.bottom;
 
