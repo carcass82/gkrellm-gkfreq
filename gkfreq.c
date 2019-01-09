@@ -19,164 +19,119 @@
  *                                                                           *
  *****************************************************************************/
 
-#include <gkrellm2/gkrellm.h>
 #include <stdio.h>
 #include <sys/time.h>
 #include <string.h>
 #include <unistd.h>
+#include <gkrellm2/gkrellm.h>
 
-#define GKFREQ_MAX_CPUS 8
+/*
+ * plugin can be compiled to handle maximum supported kernel cpus
+ * by defining GKFREQ_MAX_CPUS as `cat /sys/devices/system/cpu/kernel_max`
+ */
+#ifndef GKFREQ_MAX_CPUS
+ #define GKFREQ_MAX_CPUS 32
+#endif
+
 #define GKFREQ_CONFIG_KEYWORD "gkfreq"
 
 static GkrellmMonitor *monitor;
 static GkrellmPanel *panel;
-static GkrellmDecal *decal_text[8];
+static GkrellmDecal *decal_text[GKFREQ_MAX_CPUS];
 static GtkWidget *text_format_combo_box;
 static int style_id;
-static int cpu_online[8];
 static gchar *text_format;
 
 
-static void format_String(int cpuid, int hz, char *buf, int bufsize)
+static void format_freq_string(int cpuid, int hz, char *buf, int buf_size)
 {
-	gchar *ptr;
-	int len;
+	gchar *format_iter;
+	char* buf_iter;
+	int len = 0;
+
+	if (buf == NULL || buf_size <= 0) {
+		return;
+	}
 	
-	/* safe default */
-	if (text_format == NULL)
-		gkrellm_dup_string(&text_format, "$L: $F");
+	if (hz < 0) {
+	 	snprintf(buf, buf_size, "N/A");
+		return;
+	}
 	
-	ptr = text_format;
-	while (*ptr != '\0' && bufsize > 0) {
-		len = 1;
-		if (*ptr == '$') {
-			++ptr;
-			switch (*ptr) {
+	format_iter = text_format;
+	buf_iter = buf;
+	while (*format_iter != '\0' && len < buf_size) {
+		if (*format_iter == '$') {
+
+			++format_iter;
+			switch (*format_iter) {
 			case 'L':
-				len = snprintf(buf, bufsize, "CPU%d", cpuid);
+				len = snprintf(buf_iter, buf_size, "CPU%d", cpuid);
 				break;
 			case 'N':
-				len = snprintf(buf, bufsize, "%d", cpuid);
-				break;
-			case 'F':
-				if (hz < 0)
-					len = snprintf(buf, bufsize, "N/A MHz");
-				else if (hz < 1000000)
-					len = snprintf(buf, bufsize, "%d MHz", hz / 1000);
-				else
-					len = snprintf(buf, bufsize, "%.2f GHz", hz * 0.000001f);
+				len = snprintf(buf_iter, buf_size, "%d", cpuid);
 				break;
 			case 'M':
-				if (hz < 0)
-					len = snprintf(buf, bufsize, "N/A MHz");
-				else
-					len = snprintf(buf, bufsize, "%d MHz", hz / 1000);
+				len = snprintf(buf_iter, buf_size, "%d MHz", hz / 1000);
 				break;
 			case 'm':
-				if (hz < 0)
-					len = snprintf(buf, bufsize, "N/A");
-				else
-					len = snprintf(buf, bufsize, "%d", hz / 1000);
+				len = snprintf(buf_iter, buf_size, "%d", hz / 1000);
 				break;
 			case 'G':
-				if (hz < 0)
-					len = snprintf(buf, bufsize, "N/A GHz");
-				else
-					len = snprintf(buf, bufsize, "%.2f GHz", hz * 0.000001f);
+				len = snprintf(buf_iter, buf_size, "%.2f GHz", hz * 0.000001f);
 				break;
 			case 'g':
-				if (hz < 0)
-					len = snprintf(buf, bufsize, "N/A");
-				else
-					len = snprintf(buf, bufsize, "%.2f", hz * 0.000001f);
+				len = snprintf(buf_iter, buf_size, "%.2f", hz * 0.000001f);
 				break;
 			default:
-				*buf = *ptr;
+				*buf_iter = *format_iter;
+				len = 1;
 				break;
 			}
+
 		} else {
-			*buf = *ptr;
+
+			*buf_iter = *format_iter;
+			len = 1;
+
 		}
 		
-		bufsize -= len;
-		buf += len;
-		++ptr;
+		buf_size -= len;
+		buf_iter += len;
+		++format_iter;
 	}
-	*buf = '\0';
+
+	*buf_iter = '\0';
 }
 
 
-static void read_MHz(int cpu_id, char *buffer_, int bufsz_)
+static int is_cpu_online(int cpuid)
 {
 	FILE *f;
-	char syspath[] = "/sys/devices/system/cpu/cpuN/cpufreq/scaling_cur_freq";
-	gchar *buffer_ptr;
-	int freq;
+	static char syspath[128];
+	snprintf(syspath, 128, "/sys/devices/system/cpu/cpu%d/cpufreq/scaling_cur_freq", cpuid);
 
-	syspath[27] = cpu_id + '0';
-
-	if ((f = fopen(syspath, "r")) == NULL) {
-		freq = -1;
-	} else {
-		fscanf(f, "%d", &freq);
-		fclose(f);
-	}
-	
-	buffer_ptr = buffer_;
-	format_String(cpu_id, freq, buffer_ptr, bufsz_);
+	return ((f = fopen(syspath, "r")) == NULL)? -1 : 0;
 }
 
-
-static void get_CPUCount()
+static int read_freq(int cpuid, char *buf, int buf_size)
 {
-	/*
-	 * From Kernel Doc: cputopology.txt
-	 *
-	 * [...]
-	 * In this example, there are 64 CPUs in the system but cpus 32-63 exceed
-	 * the kernel max which is limited to 0..31 by the NR_CPUS config option
-	 * being 32.  Note also that CPUs 2 and 4-31 are not online but could be
-	 * brought online as they are both present and possible.
-	 *
-	 * kernel_max: 31
-	 * offline: 2,4-31,32-63
-	 * online: 0-1,3
-	 * possible: 0-31
-	 * present: 0-31
-	 */
+	FILE *f;
+	int freq;
 
-	char c;
-	int i, j, range_mode = 0;
-	FILE *f = NULL;
+	static char syspath[128];
+	snprintf(syspath, 128, "/sys/devices/system/cpu/cpu%d/cpufreq/scaling_cur_freq", cpuid);
 
-	f = fopen("/sys/devices/system/cpu/online", "r");
-	if (f != NULL) {
-		i = 0;
-		while ((c = fgetc(f)) != EOF) {
-
-			switch (c) {
-			case ',':
-				continue;
-			case '-':
-				range_mode = 1;
-				break;
-			default:
-				if (!isdigit(c))
-					break;
-				
-				if (range_mode == 1) {
-					for (j = cpu_online[i - 1] + 1; j <= c - '0'; ++j)
-						cpu_online[i++] = j;
-					range_mode = 0;
-				} else {
-					cpu_online[i++] = c - '0';
-				}
-				break;
-			}
-		}
-				
+	freq = -1;
+	if ((f = fopen(syspath, "r")) != NULL) {
+		fscanf(f, "%d", &freq);
 		fclose(f);
+	} else {
+		return -1;
 	}
+	
+	format_freq_string(cpuid, freq, buf, buf_size);
+	return 0;
 }
 
 
@@ -200,17 +155,18 @@ static void update_plugin()
 {
 	static int w, x_scroll[GKFREQ_MAX_CPUS];
 	static char info[32];
-	int i, idx;
+	int idx = 0;
 
 	w = gkrellm_chart_width();
 
-	i = 0;
-	while ((idx = cpu_online[i++]) != -1) {
+	for (idx = 0; idx < GKFREQ_MAX_CPUS; ++idx) {
 		
 		gboolean scrolling;
-		gint w_scroll, w_decal;
+		gint w_scroll;
+		gint w_decal;
 
-		read_MHz(idx, info, 31);
+		if (read_freq(idx, info, 31) == -1)
+			continue;
 
 		w_scroll = gdk_string_width(
 			gdk_font_from_description(decal_text[idx]->text_style.font),
@@ -261,7 +217,6 @@ static gchar *gkfreq_info_text[] = {
 	N_("Substitution variables for the format string for label:\n"),
 	N_("\t$L    the CPU label\n"),
 	N_("\t$N    the CPU id\n"),
-	N_("\t$F    the CPU frequency, in MHz or GHz\n"),
 	N_("\t$M    the CPU frequency, in MHz\n"),
 	N_("\t$m    the CPU frequency, in MHz, without 'MHz' string\n"),
 	N_("\t$G    the CPU frequency, in GHz\n"),
@@ -316,6 +271,8 @@ static void load_plugin_config(gchar *arg)
 	
 	if ((sscanf(arg, "%31s %[^\n]", config, item)) == 2)
 		gkrellm_dup_string(&text_format, item);
+	else
+		gkrellm_dup_string(&text_format, "$L: $F");
 }
 
 
@@ -330,11 +287,7 @@ static void create_plugin(GtkWidget *vbox, gint first_create)
 {
 	GkrellmStyle *style;
 	GkrellmTextstyle *ts;
-	int i, idx, y;
-
-	memset(cpu_online, -1, GKFREQ_MAX_CPUS * sizeof(gint));
-
-	get_CPUCount();
+	int idx, y;
 
 	if (first_create)
 		panel = gkrellm_panel_new0();
@@ -342,21 +295,18 @@ static void create_plugin(GtkWidget *vbox, gint first_create)
 	style = gkrellm_meter_style(style_id);
 	ts = gkrellm_meter_textstyle(style_id);
 
-	y = -1;
-	i = 0;
-	while ((idx = cpu_online[i++]) != -1) {
+	for (y = -1, idx = 0; idx < GKFREQ_MAX_CPUS; ++idx) {
+		if (is_cpu_online(idx) == 0) {
+			decal_text[idx] = gkrellm_create_decal_text(panel,
+			                                            "CPU8: @ 8888GHz",
+			                                            ts,
+			                                            style,
+			                                            -1,
+			                                            y,
+			                                            -1);
 
-		decal_text[idx] = gkrellm_create_decal_text(panel,
-		                                            "CPU8: @ 8888GHz",
-		                                            ts,
-		                                            style,
-		                                            -1,
-		                                            y,
-		                                            -1);
-		y = decal_text[idx]->y
-		  + decal_text[idx]->h
-		  + style->border.top
-		  + style->border.bottom;
+			y = decal_text[idx]->y + decal_text[idx]->h;
+		}
 
 	}
 	gkrellm_panel_configure(panel, NULL, style);
@@ -372,6 +322,7 @@ static void create_plugin(GtkWidget *vbox, gint first_create)
 		                 "button_press_event",
 		                 G_CALLBACK(gkfreq_click_event),
 		                 NULL);
+
 	}
 }
 
