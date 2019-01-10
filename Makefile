@@ -6,7 +6,7 @@ gkfreq.o: gkfreq.c
 	$(CC) $(CFLAGS) -c gkfreq.c
 
 gkfreq.so: gkfreq.o
-	$(CC) -shared -ogkfreq.so gkfreq.o
+	$(CC) -shared -O2 -ogkfreq.so gkfreq.o
 
 install:
 	install -m755 gkfreq.so ~/.gkrellm2/plugins/

@@ -21,6 +21,7 @@
 
 #include <stdio.h>
 #include <sys/time.h>
+#include <sys/stat.h>
 #include <string.h>
 #include <unistd.h>
 #include <gkrellm2/gkrellm.h>
@@ -107,31 +108,30 @@ static void format_freq_string(int cpuid, int hz, char *buf, int buf_size)
 
 static int is_cpu_online(int cpuid)
 {
-	FILE *f;
-	static char syspath[128];
-	snprintf(syspath, 128, "/sys/devices/system/cpu/cpu%d/cpufreq/scaling_cur_freq", cpuid);
+	static char syspath[64];
+	snprintf(syspath, 64, "/sys/devices/system/cpu/cpu%d/cpufreq/scaling_cur_freq", cpuid);
 
-	return ((f = fopen(syspath, "r")) == NULL)? -1 : 0;
+	struct stat buffer;
+	return (stat(syspath, &buffer) != 0)? -1 : 0;
 }
 
 static int read_freq(int cpuid, char *buf, int buf_size)
 {
 	FILE *f;
-	int freq;
+	int freq = -1;
 
-	static char syspath[128];
-	snprintf(syspath, 128, "/sys/devices/system/cpu/cpu%d/cpufreq/scaling_cur_freq", cpuid);
+	static char syspath[64];
+	snprintf(syspath, 64, "/sys/devices/system/cpu/cpu%d/cpufreq/scaling_cur_freq", cpuid);
 
-	freq = -1;
-	if ((f = fopen(syspath, "r")) != NULL) {
+	if (decal_text[cpuid] != NULL && (f = fopen(syspath, "r")) != NULL) {
 		fscanf(f, "%d", &freq);
 		fclose(f);
-	} else {
-		return -1;
+
+		format_freq_string(cpuid, freq, buf, buf_size);
+		return 0;
 	}
 	
-	format_freq_string(cpuid, freq, buf, buf_size);
-	return 0;
+	return -1;
 }
 
 
@@ -295,6 +295,8 @@ static void create_plugin(GtkWidget *vbox, gint first_create)
 	style = gkrellm_meter_style(style_id);
 	ts = gkrellm_meter_textstyle(style_id);
 
+	memset(decal_text, 0, GKFREQ_MAX_CPUS * sizeof(GkrellmDecal*));
+
 	for (y = -1, idx = 0; idx < GKFREQ_MAX_CPUS; ++idx) {
 		if (is_cpu_online(idx) == 0) {
 			decal_text[idx] = gkrellm_create_decal_text(panel,
@@ -305,7 +307,7 @@ static void create_plugin(GtkWidget *vbox, gint first_create)
 			                                            y,
 			                                            -1);
 
-			y = decal_text[idx]->y + decal_text[idx]->h;
+			y = decal_text[idx]->y + decal_text[idx]->h + 1;
 		}
 
 	}
