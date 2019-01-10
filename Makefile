@@ -1,12 +1,18 @@
-CFLAGS += -fPIC -Wall `pkg-config gkrellm --cflags`
+CFLAGS += -O2 -fpic -Wall `pkg-config gkrellm --cflags`
+
+# maximum cpus supported by your kernel
+#MAX_CPUS := -DGKFREQ_MAX_CPUS=$(shell cat /sys/devices/system/cpu/kernel_max)
+
+# force a specific number of cpus
+#MAX_CPUS := -DGKFREQ_MAX_CPUS=4
 
 all: gkfreq.so
 
 gkfreq.o: gkfreq.c
-	$(CC) $(CFLAGS) -c gkfreq.c
+	$(CC) $(CFLAGS) $(MAX_CPUS) -c gkfreq.c
 
 gkfreq.so: gkfreq.o
-	$(CC) -shared -O2 -ogkfreq.so gkfreq.o
+	$(CC) -shared -ogkfreq.so gkfreq.o
 
 install:
 	install -m755 gkfreq.so ~/.gkrellm2/plugins/

@@ -47,7 +47,7 @@ static gchar *text_format;
 static void format_freq_string(int cpuid, int hz, char *buf, int buf_size)
 {
 	gchar *format_iter;
-	char* buf_iter;
+	char *buf_iter;
 	int len = 0;
 
 	if (buf == NULL || buf_size <= 0) {
@@ -109,9 +109,14 @@ static void format_freq_string(int cpuid, int hz, char *buf, int buf_size)
 static int is_cpu_online(int cpuid)
 {
 	static char syspath[64];
-	snprintf(syspath, 64, "/sys/devices/system/cpu/cpu%d/cpufreq/scaling_cur_freq", cpuid);
+	snprintf(
+		syspath,
+		64,
+		"/sys/devices/system/cpu/cpu%d/cpufreq/scaling_cur_freq",
+		cpuid);
+	syspath[63] = '\0';
 
-	struct stat buffer;
+	static struct stat buffer;
 	return (stat(syspath, &buffer) != 0)? -1 : 0;
 }
 
@@ -121,7 +126,11 @@ static int read_freq(int cpuid, char *buf, int buf_size)
 	int freq = -1;
 
 	static char syspath[64];
-	snprintf(syspath, 64, "/sys/devices/system/cpu/cpu%d/cpufreq/scaling_cur_freq", cpuid);
+	snprintf(syspath,
+		64,
+		"/sys/devices/system/cpu/cpu%d/cpufreq/scaling_cur_freq",
+		cpuid);
+	syspath[63] = '\0';
 
 	if (decal_text[cpuid] != NULL && (f = fopen(syspath, "r")) != NULL) {
 		fscanf(f, "%d", &freq);
@@ -153,7 +162,8 @@ static gint panel_expose_event(GtkWidget *widget, GdkEventExpose *ev)
 
 static void update_plugin()
 {
-	static int w, x_scroll[GKFREQ_MAX_CPUS];
+	static int w;
+	static int x_scroll[GKFREQ_MAX_CPUS];
 	static char info[32];
 	int idx = 0;
 
@@ -226,7 +236,11 @@ static gchar *gkfreq_info_text[] = {
 
 static void create_plugin_tab(GtkWidget *tab_vbox)
 {
-	GtkWidget *tabs, *hbox, *vbox, *vbox1, *text;
+	GtkWidget *tabs;
+	GtkWidget *hbox;
+	GtkWidget *vbox;
+	GtkWidget *vbox1;
+	GtkWidget *text;
 	int i;
 	
 	tabs = gtk_notebook_new();
@@ -267,7 +281,8 @@ static void save_plugin_config(FILE *f)
 
 static void load_plugin_config(gchar *arg)
 {
-	gchar config[32], item[CFG_BUFSIZE];
+	gchar config[32];
+	gchar item[CFG_BUFSIZE];
 	
 	if ((sscanf(arg, "%31s %[^\n]", config, item)) == 2)
 		gkrellm_dup_string(&text_format, item);
