@@ -133,11 +133,12 @@ static int read_freq(int cpuid, char *buf, int buf_size)
 	syspath[63] = '\0';
 
 	if (decal_text[cpuid] != NULL && (f = fopen(syspath, "r")) != NULL) {
-		fscanf(f, "%d", &freq);
-		fclose(f);
+        if (fscanf(f, "%d", &freq) == 1) {
+    		fclose(f);
 
-		format_freq_string(cpuid, freq, buf, buf_size);
-		return 0;
+	    	format_freq_string(cpuid, freq, buf, buf_size);
+		    return 0;
+        }
 	}
 	
 	return -1;
