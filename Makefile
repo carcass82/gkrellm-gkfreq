@@ -1,15 +1,20 @@
 CFLAGS += -O2 -fpic -Wall `pkg-config gkrellm --cflags`
 
 # maximum cpus supported by your kernel
-#MAX_CPUS := -DGKFREQ_MAX_CPUS=$(shell cat /sys/devices/system/cpu/kernel_max)
+#MAX_CPUS := $(shell cat /sys/devices/system/cpu/kernel_max)
 
 # force a specific number of cpus
-#MAX_CPUS := -DGKFREQ_MAX_CPUS=4
+#MAX_CPUS := 4
+
+# defaults to current CPU count
+MAX_CPUS := $(shell nproc)
+
+
 
 all: gkfreq.so
 
 gkfreq.o: gkfreq.c
-	$(CC) $(CFLAGS) $(MAX_CPUS) -c gkfreq.c
+	$(CC) $(CFLAGS) -DGKFREQ_MAX_CPUS=$(MAX_CPUS) -c gkfreq.c
 
 gkfreq.so: gkfreq.o
 	$(CC) -shared -ogkfreq.so gkfreq.o
