@@ -122,7 +122,7 @@ static int is_cpu_online(int cpuid)
 
 static int read_freq(int cpuid, char *buf, int buf_size)
 {
-	FILE *f;
+	FILE* f = NULL;
 	int freq = -1;
 
 	static char syspath[64];
@@ -133,12 +133,12 @@ static int read_freq(int cpuid, char *buf, int buf_size)
 	syspath[63] = '\0';
 
 	if (decal_text[cpuid] != NULL && (f = fopen(syspath, "r")) != NULL) {
-        if (fscanf(f, "%d", &freq) == 1) {
-    		fclose(f);
+		if (fscanf(f, "%d", &freq) == 1) {
+    			fclose(f);
 
-	    	format_freq_string(cpuid, freq, buf, buf_size);
-		    return 0;
-        }
+	    		format_freq_string(cpuid, freq, buf, buf_size);
+		    	return 0;
+        	}
 	}
 	
 	return -1;
