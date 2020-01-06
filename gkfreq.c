@@ -124,6 +124,7 @@ static int read_freq(int cpuid, char *buf, int buf_size)
 {
 	FILE* f = NULL;
 	int freq = -1;
+	int res = -1;
 
 	static char syspath[64];
 	snprintf(syspath,
@@ -136,16 +137,14 @@ static int read_freq(int cpuid, char *buf, int buf_size)
 		f = fopen(syspath, "r");
 		if (f != NULL) {
 			if (fscanf(f, "%d", &freq) == 1) {
-    			
-	    		format_freq_string(cpuid, freq, buf, buf_size);
-		    	return 0;
-
+    			format_freq_string(cpuid, freq, buf, buf_size);
+		    	res = 0;
         	}
         	fclose(f);
         }
 	}
 	
-	return -1;
+	return res;
 }
 
 
