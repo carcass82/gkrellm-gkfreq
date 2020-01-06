@@ -132,13 +132,17 @@ static int read_freq(int cpuid, char *buf, int buf_size)
 		cpuid);
 	syspath[63] = '\0';
 
-	if (decal_text[cpuid] != NULL && (f = fopen(syspath, "r")) != NULL) {
-		if (fscanf(f, "%d", &freq) == 1) {
-    			fclose(f);
-
+	if (decal_text[cpuid] != NULL) {
+		f = fopen(syspath, "r");
+		if (f != NULL) {
+			if (fscanf(f, "%d", &freq) == 1) {
+    			
 	    		format_freq_string(cpuid, freq, buf, buf_size);
 		    	return 0;
+
         	}
+        	fclose(f);
+        }
 	}
 	
 	return -1;
@@ -282,10 +286,10 @@ static void save_plugin_config(FILE *f)
 
 static void load_plugin_config(gchar *arg)
 {
-	gchar config[32];
-	gchar item[CFG_BUFSIZE];
+	gchar config[32] = {0};
+	gchar item[512];
 	
-	if ((sscanf(arg, "%31s %[^\n]", config, item)) == 2)
+	if ((sscanf(arg, "%31s %511[^\n]", config, item)) == 2)
 		gkrellm_dup_string(&text_format, item);
 	else
 		gkrellm_dup_string(&text_format, "$L: $F");
