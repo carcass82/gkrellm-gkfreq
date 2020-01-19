@@ -61,7 +61,7 @@ static void format_freq_string(int cpuid, int hz, char *buf, int buf_size)
 	
 	format_iter = text_format;
 	buf_iter = buf;
-	while (*format_iter != '\0' && len < buf_size) {
+	while (format_iter && *format_iter != '\0' && len < buf_size) {
 		if (*format_iter == '$') {
 
 			++format_iter;
@@ -291,7 +291,7 @@ static void load_plugin_config(gchar *arg)
 	if ((sscanf(arg, "%31s %511[^\n]", config, item)) == 2)
 		gkrellm_dup_string(&text_format, item);
 	else
-		gkrellm_dup_string(&text_format, "$L: $F");
+		gkrellm_dup_string(&text_format, "$L: $G");
 }
 
 
