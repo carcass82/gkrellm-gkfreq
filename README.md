@@ -4,3 +4,7 @@ I loved this [GKrellM](http://gkrellm.srcbox.net/) plugin but the homepage is no
 Since the project was licensed under GPL2, i'm "adopting" and updating it.
 
 Original gkfreq author: [Brad Davis](mailto:brad@peakunix.net)
+
+![sample](doc/screen.jpg)
+
+![options](doc/screen1.jpg)
